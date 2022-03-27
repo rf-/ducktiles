@@ -543,8 +543,11 @@ export function reducer(state: State, action: Action): State {
   const newState = innerReducer(state, action);
 
   if (state.tiles !== newState.tiles) {
-    document.location.hash =
-      newState.tiles.length === 0 ? "" : encodeBase64(newState.tiles);
+    window.history.replaceState(
+      null,
+      "",
+      `#${newState.tiles.length === 0 ? "" : encodeBase64(newState.tiles)}`
+    );
   }
 
   return newState;
