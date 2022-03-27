@@ -31,6 +31,7 @@ export type Action =
   | { type: "cancelAddTiles" }
   | { type: "commitAddTiles" }
   | { type: "addTilesWithPrompt" }
+  | { type: "selectAll" }
   | { type: "shuffle" }
   | { type: "delete" }
   | { type: "enableTouchUI" }
@@ -152,7 +153,8 @@ function placeNewTiles(
 export function reducer(state: State = initialState, action: Action): State {
   if (action.type === "keyDown") {
     const { event } = action;
-    const key = event.key;
+    const { key, ctrlKey, metaKey } = event;
+    const isShortcut = ctrlKey || metaKey; // Windows and Mac respectively
 
     if (key === " " && state.inputLetters == null) {
       event.preventDefault();
@@ -176,6 +178,10 @@ export function reducer(state: State = initialState, action: Action): State {
 
     if (key === "Enter" && state.inputLetters != null) {
       return reducer(state, { type: "commitAddTiles" });
+    }
+
+    if ((key === "a" || key === "A") && isShortcut) {
+      return reducer(state, { type: "selectAll" });
     }
 
     return state;
@@ -402,6 +408,13 @@ export function reducer(state: State = initialState, action: Action): State {
         ])
       ),
       selectedTileIds: [],
+    };
+  }
+
+  if (action.type === "selectAll") {
+    return {
+      ...state,
+      selectedTileIds: state.tiles.map((tile) => tile.id),
     };
   }
 
