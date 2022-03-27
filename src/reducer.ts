@@ -124,22 +124,26 @@ function placeNewTiles(
   // Now lay out the tiles in that number of rows, centered on the cursor
   const tilesByRow = chunk(chars, maxRowTiles);
   const overallHeight = calculateTilesSize(tilesByRow.length);
-  const startX = point[0] - overallWidth / 2 - state.windowDimensions[0] / 2;
-  const startY = point[1] - overallHeight / 2 - state.windowDimensions[1] / 2;
+  const startX = point[0] - overallWidth / 2;
+  const startY = point[1] - overallHeight / 2;
 
   // Clamp the locations to fit inside the window if possible
   const [adjustedStartX, adjustedStartY] = clampShapeTopLeft(
     [startX, startY],
     [overallWidth, overallHeight],
-    calculateSmallOffsetBBox(state.windowDimensions)
+    windowBBox
   );
 
   return chars.map((char, idx) => ({
     id: nextId++ as TileId,
     char,
     offset: [
-      adjustedStartX + (idx % maxRowTiles) * (tileSize + tileGap),
-      adjustedStartY + Math.floor(idx / maxRowTiles) * (tileSize + tileGap),
+      adjustedStartX +
+        (idx % maxRowTiles) * (tileSize + tileGap) -
+        state.windowDimensions[0] / 2,
+      adjustedStartY +
+        Math.floor(idx / maxRowTiles) * (tileSize + tileGap) -
+        state.windowDimensions[1] / 2,
     ],
     ghost: !rawText,
   }));

@@ -1,7 +1,7 @@
 import { BBox, Dimensions, Point } from "./types";
 import unzip from "lodash/unzip";
 import sum from "lodash/sum";
-import { calculateFooterHeight } from "./config";
+import { calculateFooterHeight, tileSize } from "./config";
 
 export function add<T extends [number, number]>(...vecs: Array<T>): T {
   const [xs, ys] = unzip(vecs);
@@ -49,16 +49,21 @@ export function calculateFullWindowBBox(windowDimensions: Dimensions): BBox {
 export function calculateSmallWindowBBox(windowDimensions: Dimensions): BBox {
   const footerHeight = calculateFooterHeight(windowDimensions[0]);
 
-  return [0, windowDimensions[0], 0, windowDimensions[1] - footerHeight];
+  return [
+    tileSize,
+    windowDimensions[0] - tileSize,
+    tileSize,
+    windowDimensions[1] - footerHeight,
+  ];
 }
 
 export function calculateSmallOffsetBBox(windowDimensions: Dimensions): BBox {
   const footerHeight = calculateFooterHeight(windowDimensions[0]);
 
   return [
-    -windowDimensions[0] / 2,
-    windowDimensions[0] / 2,
-    -windowDimensions[1] / 2,
+    -windowDimensions[0] / 2 + tileSize,
+    windowDimensions[0] / 2 - tileSize,
+    -windowDimensions[1] / 2 + tileSize,
     windowDimensions[1] / 2 - footerHeight,
   ];
 }
