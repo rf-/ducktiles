@@ -115,7 +115,7 @@ function placeNewTiles(
 ): Array<Tile> {
   const chars = (rawText || "type here").split("");
 
-  const nextId = (state.tiles.at(-1)?.id ?? 0) + 1;
+  const nextId = (state.tiles.slice(-1)[0]?.id ?? 0) + 1;
   const windowBBox = calculateSmallWindowBBox(state.windowDimensions);
 
   // Reduce the number of tiles per row until it can fit
@@ -218,7 +218,7 @@ function innerReducer(state: State = initialState, action: Action): State {
       state,
       action.point,
       action.point
-    ).at(-1);
+    ).slice(-1)[0];
 
     if (topTileAtPoint) {
       return {
@@ -487,7 +487,7 @@ function innerReducer(state: State = initialState, action: Action): State {
   }
 
   if (action.type === "undo") {
-    const newTiles = state.undoStack.at(-1);
+    const newTiles = state.undoStack.slice(-1)[0];
     if (newTiles == null) return state;
 
     return {
