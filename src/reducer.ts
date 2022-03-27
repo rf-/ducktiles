@@ -39,7 +39,7 @@ export type Action =
   | { type: "changeAddTilesInput"; input: string }
   | { type: "cancelAddTiles" }
   | { type: "commitAddTiles" }
-  | { type: "addTilesWithPrompt" }
+  | { type: "addTilesFromPrompt"; text: string }
   | { type: "selectAll" }
   | { type: "shuffle" }
   | { type: "delete" }
@@ -104,8 +104,6 @@ function findTilesOverlappingBox(
   });
 }
 
-let nextId = 0;
-
 function calculateTilesSize(numberOfTiles: number) {
   return tileSize * numberOfTiles + tileGap * (numberOfTiles - 1);
 }
@@ -117,6 +115,7 @@ function placeNewTiles(
 ): Array<Tile> {
   const chars = (rawText || "type here").split("");
 
+  const nextId = (state.tiles.at(-1)?.id ?? 0) + 1;
   const windowBBox = calculateSmallWindowBBox(state.windowDimensions);
 
   // Reduce the number of tiles per row until it can fit
@@ -153,7 +152,7 @@ function placeNewTiles(
   );
 
   return chars.map((char, idx) => ({
-    id: nextId++ as TileId,
+    id: (nextId + idx) as TileId,
     char,
     offset: [
       adjustedStartX +
@@ -361,10 +360,6 @@ function innerReducer(state: State = initialState, action: Action): State {
   }
 
   if (action.type === "startAddTiles") {
-    if (state.useTouchUI) {
-      return reducer(state, { type: "addTilesWithPrompt" });
-    }
-
     const inputLetters = "";
 
     return {
@@ -426,14 +421,11 @@ function innerReducer(state: State = initialState, action: Action): State {
     };
   }
 
-  if (action.type === "addTilesWithPrompt") {
-    const text = prompt("Enter some letters!");
-    if (!text) return state;
-
+  if (action.type === "addTilesFromPrompt") {
     return {
       ...state,
       tiles: state.tiles.concat(
-        placeNewTiles(state, text, [
+        placeNewTiles(state, action.text, [
           state.windowDimensions[0] / 2,
           state.windowDimensions[1] / 2,
         ])

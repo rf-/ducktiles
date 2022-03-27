@@ -256,8 +256,15 @@ function App() {
   }, []);
 
   const handleAddButtonClick = useCallback(() => {
-    dispatch({ type: "startAddTiles" });
-  }, []);
+    if (useTouchUI) {
+      const text = prompt("Enter some letters!");
+      if (text) {
+        dispatch({ type: "addTilesFromPrompt", text });
+      }
+    } else {
+      dispatch({ type: "startAddTiles" });
+    }
+  }, [useTouchUI]);
 
   const handleAddTilesInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
