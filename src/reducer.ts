@@ -52,6 +52,7 @@ export type State = {
   useTouchUI: boolean;
   undoStack: Array<Array<Tile>>;
   redoStack: Array<Array<Tile>>;
+  showingZeroState: boolean;
 };
 
 export const initialState: State = {
@@ -67,6 +68,7 @@ export const initialState: State = {
   useTouchUI: false,
   undoStack: [],
   redoStack: [],
+  showingZeroState: true,
 };
 
 function findTilesOverlappingBox(
@@ -364,6 +366,7 @@ export function reducer(state: State = initialState, action: Action): State {
       ),
       selectedTileIds: [],
       animating: false,
+      showingZeroState: false,
     };
   }
 
@@ -429,6 +432,7 @@ export function reducer(state: State = initialState, action: Action): State {
       undoStack: [...state.undoStack, state.tiles],
       redoStack: [],
       selectedTileIds: [],
+      showingZeroState: false,
     };
   }
 

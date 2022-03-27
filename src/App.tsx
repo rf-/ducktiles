@@ -26,6 +26,8 @@ import {
 
 import "normalize.css";
 import "focus-visible";
+import ZeroState from "./ZeroState";
+import DownArrow from "./DownArrow";
 
 const globalStyles = css`
   * {
@@ -81,6 +83,17 @@ const ButtonsContainer = styled.div`
   display: flex;
   gap: 1em;
   font-size: min(${buttonFontSizePx}px, ${buttonFontSizeVW}vw);
+`;
+
+const ZeroStateAnchor = styled.div`
+  position: relative;
+`;
+
+const ZeroStateContainer = styled.div`
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100%);
 `;
 
 const Button = styled.button`
@@ -178,6 +191,7 @@ function App() {
       pointerPosition,
       selectedTileIds,
       useTouchUI,
+      showingZeroState,
     },
     dispatch,
   ] = useReducer(reducer, initialState);
@@ -325,12 +339,19 @@ function App() {
       )}
       <Footer>
         <ButtonsContainer>
-          <Button
-            onClick={handleAddButtonClick}
-            disabled={inputLetters != null}
-          >
-            Add tiles
-          </Button>
+          <ZeroStateAnchor>
+            {showingZeroState && (
+              <ZeroStateContainer>
+                <ZeroState />
+              </ZeroStateContainer>
+            )}
+            <Button
+              onClick={handleAddButtonClick}
+              disabled={inputLetters != null}
+            >
+              Add tiles
+            </Button>
+          </ZeroStateAnchor>
           <Button
             onPointerDown={stopPropagation}
             onPointerUp={stopPropagation}
