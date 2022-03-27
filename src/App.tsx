@@ -23,11 +23,10 @@ import {
   footerFontSizePx,
   footerFontSizeVW,
 } from "./config";
+import ZeroState from "./ZeroState";
 
 import "normalize.css";
 import "focus-visible";
-import ZeroState from "./ZeroState";
-import DownArrow from "./DownArrow";
 
 const globalStyles = css`
   * {
