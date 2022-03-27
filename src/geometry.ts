@@ -48,11 +48,12 @@ export function calculateFullWindowBBox(windowDimensions: Dimensions): BBox {
 
 export function calculateSmallWindowBBox(windowDimensions: Dimensions): BBox {
   const footerHeight = calculateFooterHeight(windowDimensions[0]);
+  const padding = tileSize / 2;
 
   return [
-    tileSize,
-    windowDimensions[0] - tileSize,
-    tileSize,
+    padding,
+    windowDimensions[0] - padding,
+    padding,
     windowDimensions[1] - footerHeight,
   ];
 }

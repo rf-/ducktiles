@@ -19,15 +19,6 @@ import {
 } from "./geometry";
 import chunk from "lodash/chunk";
 
-// Janky helpers from MDN -- these should be good enough for us despite the
-// deprecation warnings.
-function encodeBase64(data: any) {
-  return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-}
-function decodeBase64(str: string) {
-  return JSON.parse(decodeURIComponent(escape(atob(str))));
-}
-
 export type Action =
   | { type: "keyDown"; event: KeyboardEvent }
   | { type: "pointerDown"; point: Point }
@@ -537,6 +528,15 @@ function innerReducer(state: State = initialState, action: Action): State {
   assertNever(action);
 
   return state;
+}
+
+// Janky helpers from MDN -- these should be good enough for us despite the
+// deprecation warnings.
+function encodeBase64(data: any) {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+}
+function decodeBase64(str: string) {
+  return JSON.parse(decodeURIComponent(escape(atob(str))));
 }
 
 export function reducer(state: State, action: Action): State {
