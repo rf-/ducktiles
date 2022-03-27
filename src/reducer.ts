@@ -477,9 +477,12 @@ function innerReducer(state: State = initialState, action: Action): State {
   if (action.type === "delete") {
     return {
       ...state,
-      tiles: state.tiles.filter(
-        (tile) => !state.selectedTileIds.includes(tile.id)
-      ),
+      tiles:
+        state.selectedTileIds.length > 0
+          ? state.tiles.filter(
+              (tile) => !state.selectedTileIds.includes(tile.id)
+            )
+          : [],
       undoStack: [...state.undoStack, state.tiles],
       redoStack: [],
       selectedTileIds: [],

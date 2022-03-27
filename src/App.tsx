@@ -363,7 +363,7 @@ function App() {
             onPointerDown={stopPropagation}
             onPointerUp={stopPropagation}
             onClick={handleTrashButtonClick}
-            disabled={inputLetters != null || selectedTileIds.length === 0}
+            disabled={inputLetters != null}
           >
             <TrashIcon />
           </Button>
