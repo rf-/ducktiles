@@ -38,7 +38,9 @@ export type Action =
   | { type: "undo" }
   | { type: "redo" }
   | { type: "enableTouchUI" }
-  | { type: "disableTouchUI" };
+  | { type: "disableTouchUI" }
+  | { type: "showHelp" }
+  | { type: "hideHelp" };
 
 export type State = {
   tiles: Array<Tile>;
@@ -54,6 +56,7 @@ export type State = {
   undoStack: Array<Array<Tile>>;
   redoStack: Array<Array<Tile>>;
   showingZeroState: boolean;
+  showingHelp: boolean;
 };
 
 export const initialState: State = {
@@ -70,6 +73,7 @@ export const initialState: State = {
   undoStack: [],
   redoStack: [],
   showingZeroState: true,
+  showingHelp: false,
 };
 
 function findTilesOverlappingBox(
@@ -163,6 +167,14 @@ function innerReducer(state: State = initialState, action: Action): State {
     const { event } = action;
     const { key, ctrlKey, metaKey, shiftKey } = event;
     const isShortcut = ctrlKey || metaKey; // Windows and Mac respectively
+
+    if (state.showingHelp) {
+      if (key === " " || key === "Escape" || key === "Enter") {
+        event.preventDefault();
+        return reducer(state, { type: "hideHelp" });
+      }
+      return state;
+    }
 
     if (key === " " && state.inputLetters == null) {
       event.preventDefault();
@@ -526,6 +538,20 @@ function innerReducer(state: State = initialState, action: Action): State {
     };
   }
 
+  if (action.type === "showHelp") {
+    return {
+      ...state,
+      showingHelp: true,
+    };
+  }
+
+  if (action.type === "hideHelp") {
+    return {
+      ...state,
+      showingHelp: false,
+    };
+  }
+
   assertNever(action);
 
   return state;
@@ -560,8 +586,7 @@ export function reducer(state: State, action: Action): State {
 }
 
 export function initializer(state: State): State {
-  let tiles: Array<Tile> = [];
-  let showingZeroState = true;
+  let { tiles, showingZeroState } = initialState;
 
   if (document.location.hash) {
     try {

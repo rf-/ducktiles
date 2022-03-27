@@ -18,7 +18,7 @@ export const buttonsMarginBottomEm = 1;
 
 export const footerFontSizePx = 12;
 
-export const footerFontSizeVW = 3.25;
+export const footerFontSizeVW = 3;
 
 export const footerMarginBottomEm = 1;
 

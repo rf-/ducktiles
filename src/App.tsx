@@ -1,3 +1,6 @@
+import "normalize.css";
+import "focus-visible";
+
 import { css, Global } from "@emotion/react";
 import styled from "@emotion/styled";
 import {
@@ -24,9 +27,8 @@ import {
   footerFontSizeVW,
 } from "./config";
 import ZeroState from "./ZeroState";
-
-import "normalize.css";
-import "focus-visible";
+import HelpIcon from "./HelpIcon";
+import HelpOverlay from "./HelpOverlay";
 
 const globalStyles = css`
   * {
@@ -136,19 +138,62 @@ Button.defaultProps = {
   type: "button",
 };
 
+const HelpButton = styled.button`
+  background-color: #ad0000;
+  color: #ead5b7;
+  width: 1.5em;
+  height: 1.5em;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  filter: drop-shadow(0 1px 2px rgba(40, 0, 0, 0.2));
+  margin: -0.25em 0;
+
+  &:hover:not(:disabled) {
+    background-color: #c00000;
+  }
+
+  &:active:not(:disabled) {
+    position: relative;
+    top: 1px;
+    filter: drop-shadow(0 0 1px rgba(40, 0, 0, 0.2));
+  }
+
+  &:focus-visible,
+  [data-focus-visible-added] {
+    outline: 2px solid white;
+  }
+`;
+
+HelpButton.defaultProps = {
+  type: "button",
+};
+
 const FooterTextBar = styled.div`
   display: flex;
   font-size: min(${footerFontSizePx}px, ${footerFontSizeVW}vw);
   line-height: ${defaultLineHeight};
   margin-bottom: ${footerMarginBottomEm}em;
-  gap: 0.3em;
+  gap: 0.5em;
   pointer-events: auto;
-  opacity: 0.6;
   white-space: nowrap;
+  align-items: center;
 
   * {
     flex-shrink: 0;
   }
+`;
+
+const FooterTextBarInner = styled.div`
+  display: flex;
+  gap: 0.3em;
+  white-space: nowrap;
+  opacity: 0.6;
+  align-items: center;
 
   a {
     color: #ad0000;
@@ -191,6 +236,7 @@ function App() {
       selectedTileIds,
       useTouchUI,
       showingZeroState,
+      showingHelp,
     },
     dispatch,
   ] = useReducer(reducer, initialState, initializer);
@@ -290,6 +336,10 @@ function App() {
     dispatch({ type: "delete" });
   }, [useTouchUI, selectedTileIds]);
 
+  const handleHelpClick = useCallback(() => {
+    dispatch({ type: "showHelp" });
+  }, []);
+
   useLayoutEffect(() => {
     if (moveOrigin != null) {
       document.documentElement.classList.add("cursor-grabbing");
@@ -351,7 +401,6 @@ function App() {
             )}
             <Button
               onPointerDown={stopPropagation}
-              onPointerUp={stopPropagation}
               onClick={handleAddButtonClick}
               disabled={inputLetters != null}
             >
@@ -360,7 +409,6 @@ function App() {
           </ZeroStateAnchor>
           <Button
             onPointerDown={stopPropagation}
-            onPointerUp={stopPropagation}
             onClick={handleShuffleButtonClick}
             disabled={inputLetters != null || tiles.length === 0}
           >
@@ -369,7 +417,6 @@ function App() {
           <Button
             aria-label="Delete"
             onPointerDown={stopPropagation}
-            onPointerUp={stopPropagation}
             onClick={handleTrashButtonClick}
             disabled={inputLetters != null || tiles.length === 0}
           >
@@ -377,33 +424,44 @@ function App() {
           </Button>
         </ButtonsContainer>
         <FooterTextBar>
-          <span>
-            Made by{" "}
-            <a href="https://rynftz.gr" target="_blank" rel="noreferrer">
-              Ryan Fitzgerald
-            </a>
-          </span>
-          <span>&middot;</span>
-          <span>
-            Logo by{" "}
+          <FooterTextBarInner>
+            <span>
+              Made by{" "}
+              <a href="https://rynftz.gr" target="_blank" rel="noreferrer">
+                Ryan Fitzgerald
+              </a>
+            </span>
+            <span>&middot;</span>
             <a
-              href="https://thenounproject.com/naripuru"
+              href="https://github.com/rf-/ducktiles"
               target="_blank"
               rel="noreferrer"
             >
-              parkjisun
-            </a>{" "}
-            via{" "}
-            <a
-              href="https://thenounproject.com"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Noun Project
+              GitHub
             </a>
-          </span>
+            <span>&middot;</span>
+            <span>
+              Logo by{" "}
+              <a
+                href="https://thenounproject.com/naripuru"
+                target="_blank"
+                rel="noreferrer"
+              >
+                parkjisun
+              </a>
+            </span>
+            <span>&middot;</span>
+          </FooterTextBarInner>
+          <HelpButton
+            aria-label="Help"
+            onPointerDown={stopPropagation}
+            onClick={handleHelpClick}
+          >
+            <HelpIcon />
+          </HelpButton>
         </FooterTextBar>
       </Footer>
+      <HelpOverlay visible={showingHelp} dispatch={dispatch} />
     </AppRoot>
   );
 }

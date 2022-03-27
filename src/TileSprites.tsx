@@ -5,7 +5,7 @@ import { tileFontSize, tileSizeRatio } from "./config";
 import usePreviousValue from "./usePreviousValue";
 import { useEffect, useState } from "react";
 
-const TileSprite = styled.div`
+export const TileSprite = styled.div`
   position: absolute;
   align-items: center;
   background-color: #f3df96;
