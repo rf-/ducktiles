@@ -18,6 +18,7 @@ import {
   subtract,
 } from "./geometry";
 import chunk from "lodash/chunk";
+import debounce from "lodash/debounce";
 
 export type Action =
   | { type: "keyDown"; event: KeyboardEvent }
@@ -539,15 +540,20 @@ function decodeBase64(str: string) {
   return JSON.parse(decodeURIComponent(escape(atob(str))));
 }
 
+// Debounce URL updates to avoid errors
+const updateURL = debounce((tiles: Array<Tile>) => {
+  window.history.replaceState(
+    null,
+    "",
+    `#${tiles.length === 0 ? "" : encodeBase64(tiles)}`
+  );
+}, 100);
+
 export function reducer(state: State, action: Action): State {
   const newState = innerReducer(state, action);
 
   if (state.tiles !== newState.tiles) {
-    window.history.replaceState(
-      null,
-      "",
-      `#${newState.tiles.length === 0 ? "" : encodeBase64(newState.tiles)}`
-    );
+    updateURL(newState.tiles);
   }
 
   return newState;
