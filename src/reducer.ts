@@ -200,6 +200,11 @@ function innerReducer(state: State = initialState, action: Action): State {
       return reducer(state, { type: "selectAll" });
     }
 
+    if (key === "s" && isShortcut) {
+      event.preventDefault();
+      return reducer(state, { type: "shuffle" });
+    }
+
     if (key === "z" && !shiftKey && isShortcut) {
       return reducer(state, { type: "undo" });
     }
