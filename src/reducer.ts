@@ -19,6 +19,15 @@ import {
 } from "./geometry";
 import chunk from "lodash/chunk";
 
+// Janky helpers from MDN -- these should be good enough for us despite the
+// deprecation warnings.
+function encodeBase64(data: any) {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+}
+function decodeBase64(str: string) {
+  return JSON.parse(decodeURIComponent(escape(atob(str))));
+}
+
 export type Action =
   | { type: "keyDown"; event: KeyboardEvent }
   | { type: "pointerDown"; point: Point }
@@ -158,7 +167,7 @@ function placeNewTiles(
   }));
 }
 
-export function reducer(state: State = initialState, action: Action): State {
+function innerReducer(state: State = initialState, action: Action): State {
   if (action.type === "keyDown") {
     const { event } = action;
     const { key, ctrlKey, metaKey, shiftKey } = event;
@@ -528,4 +537,35 @@ export function reducer(state: State = initialState, action: Action): State {
   assertNever(action);
 
   return state;
+}
+
+export function reducer(state: State, action: Action): State {
+  const newState = innerReducer(state, action);
+
+  if (state.tiles !== newState.tiles) {
+    document.location.hash =
+      newState.tiles.length === 0 ? "" : encodeBase64(newState.tiles);
+  }
+
+  return newState;
+}
+
+export function initializer(state: State): State {
+  let tiles: Array<Tile> = [];
+  let showingZeroState = true;
+
+  if (document.location.hash) {
+    try {
+      tiles = decodeBase64(document.location.hash.slice(1));
+      showingZeroState = false;
+    } catch (_err) {
+      // Not valid JSON or whatever, ignore it
+    }
+  }
+
+  return {
+    ...state,
+    tiles,
+    showingZeroState,
+  };
 }

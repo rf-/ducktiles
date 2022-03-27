@@ -10,7 +10,7 @@ import {
 } from "react";
 import Logo from "./Logo";
 import TrashIcon from "./TrashIcon";
-import { initialState, reducer } from "./reducer";
+import { initializer, initialState, reducer } from "./reducer";
 import { calculateBoundingBox } from "./geometry";
 import TileSprites from "./TileSprites";
 import {
@@ -194,7 +194,7 @@ function App() {
       showingZeroState,
     },
     dispatch,
-  ] = useReducer(reducer, initialState);
+  ] = useReducer(reducer, initialState, initializer);
 
   const addTilesInput = useRef<HTMLInputElement>(null);
 
@@ -218,22 +218,14 @@ function App() {
       });
     }
 
-    // Show alert dialog on reload
-    function handleBeforeUnload(event: BeforeUnloadEvent) {
-      event.returnValue = "";
-      event.preventDefault();
-    }
-
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("touchmove", handleTouchMove);
     window.addEventListener("resize", handleWindowResize);
-    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("resize", handleWindowResize);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, []);
 
