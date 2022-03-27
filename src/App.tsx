@@ -350,6 +350,8 @@ function App() {
               </ZeroStateContainer>
             )}
             <Button
+              onPointerDown={stopPropagation}
+              onPointerUp={stopPropagation}
               onClick={handleAddButtonClick}
               disabled={inputLetters != null}
             >
