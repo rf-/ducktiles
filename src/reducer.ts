@@ -34,6 +34,8 @@ export type Action =
   | { type: "selectAll" }
   | { type: "shuffle" }
   | { type: "delete" }
+  | { type: "undo" }
+  | { type: "redo" }
   | { type: "enableTouchUI" }
   | { type: "disableTouchUI" };
 
@@ -48,6 +50,8 @@ export type State = {
   pointerPosition: Point;
   selectedTileIds: Array<TileId>;
   useTouchUI: boolean;
+  undoStack: Array<Array<Tile>>;
+  redoStack: Array<Array<Tile>>;
 };
 
 export const initialState: State = {
@@ -61,6 +65,8 @@ export const initialState: State = {
   selectOrigin: null,
   selectedTileIds: [],
   useTouchUI: false,
+  undoStack: [],
+  redoStack: [],
 };
 
 function findTilesOverlappingBox(
@@ -153,7 +159,7 @@ function placeNewTiles(
 export function reducer(state: State = initialState, action: Action): State {
   if (action.type === "keyDown") {
     const { event } = action;
-    const { key, ctrlKey, metaKey } = event;
+    const { key, ctrlKey, metaKey, shiftKey } = event;
     const isShortcut = ctrlKey || metaKey; // Windows and Mac respectively
 
     if (key === " " && state.inputLetters == null) {
@@ -180,8 +186,16 @@ export function reducer(state: State = initialState, action: Action): State {
       return reducer(state, { type: "commitAddTiles" });
     }
 
-    if ((key === "a" || key === "A") && isShortcut) {
+    if (key === "a" && isShortcut) {
       return reducer(state, { type: "selectAll" });
+    }
+
+    if (key === "z" && !shiftKey && isShortcut) {
+      return reducer(state, { type: "undo" });
+    }
+
+    if (((key === "z" && shiftKey) || key === "y") && isShortcut) {
+      return reducer(state, { type: "redo" });
     }
 
     return state;
@@ -299,6 +313,8 @@ export function reducer(state: State = initialState, action: Action): State {
       return {
         ...state,
         tiles: state.previewTiles ?? state.tiles,
+        undoStack: [...state.undoStack, state.tiles],
+        redoStack: [],
         previewTiles: null,
         moveOrigin: null,
       };
@@ -317,6 +333,7 @@ export function reducer(state: State = initialState, action: Action): State {
   if (action.type === "windowResize") {
     const offsetBBox = calculateSmallOffsetBBox(state.windowDimensions);
 
+    // NOTE: We don't update history since it'll be too noisy
     return {
       ...state,
       windowDimensions: action.dimensions,
@@ -390,6 +407,8 @@ export function reducer(state: State = initialState, action: Action): State {
     return {
       ...state,
       tiles: state.previewTiles ?? state.tiles,
+      undoStack: [...state.undoStack, state.tiles],
+      redoStack: [],
       inputLetters: null,
       previewTiles: null,
     };
@@ -407,6 +426,8 @@ export function reducer(state: State = initialState, action: Action): State {
           state.windowDimensions[1] / 2,
         ])
       ),
+      undoStack: [...state.undoStack, state.tiles],
+      redoStack: [],
       selectedTileIds: [],
     };
   }
@@ -442,6 +463,8 @@ export function reducer(state: State = initialState, action: Action): State {
           ? { ...tile, offset: newOffsetById[tile.id] }
           : tile
       ),
+      undoStack: [...state.undoStack, state.tiles],
+      redoStack: [],
       animating: true,
     };
   }
@@ -452,7 +475,35 @@ export function reducer(state: State = initialState, action: Action): State {
       tiles: state.tiles.filter(
         (tile) => !state.selectedTileIds.includes(tile.id)
       ),
+      undoStack: [...state.undoStack, state.tiles],
+      redoStack: [],
       selectedTileIds: [],
+    };
+  }
+
+  if (action.type === "undo") {
+    const newTiles = state.undoStack.at(-1);
+    if (newTiles == null) return state;
+
+    return {
+      ...state,
+      tiles: newTiles,
+      undoStack: state.undoStack.slice(0, -1),
+      redoStack: [state.tiles, ...state.redoStack],
+      animating: true,
+    };
+  }
+
+  if (action.type === "redo") {
+    const newTiles = state.redoStack[0];
+    if (newTiles == null) return state;
+
+    return {
+      ...state,
+      tiles: newTiles,
+      undoStack: [...state.undoStack, state.tiles],
+      redoStack: state.redoStack.slice(1),
+      animating: true,
     };
   }
 
