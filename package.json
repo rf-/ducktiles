@@ -3,29 +3,35 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@testing-library/jest-dom": "^5.16.2",
-    "@testing-library/react": "^12.1.4",
-    "@testing-library/user-event": "^13.5.0",
-    "@types/jest": "^27.4.1",
+    "@emotion/react": "^11.8.2",
+    "@emotion/styled": "^11.8.1",
+    "@types/lodash": "^4.14.180",
     "@types/node": "^16.11.26",
     "@types/react": "^17.0.41",
     "@types/react-dom": "^17.0.14",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint_d": "^11.1.1",
+    "focus-visible": "^5.2.0",
+    "framer-motion": "^6.2.8",
+    "lodash": "^4.17.21",
+    "normalize.css": "^8.0.1",
+    "prettier": "^2.6.0",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-scripts": "5.0.0",
-    "typescript": "^4.6.2",
-    "web-vitals": "^2.1.4"
+    "typescript": "^4.6.2"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "deploy": "GENERATE_SOURCEMAP=false PUBLIC_URL=https://ducktiles.com react-scripts build && scp -r -i ~/.ssh/rynftzgr build/* rynftz.gr:ducktiles"
   },
   "eslintConfig": {
     "extends": [
       "react-app",
-      "react-app/jest"
+      "prettier"
     ]
   },
   "browserslist": {
