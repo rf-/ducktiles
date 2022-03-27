@@ -281,8 +281,14 @@ function App() {
   }, []);
 
   const handleTrashButtonClick = useCallback(() => {
+    if (useTouchUI && selectedTileIds.length === 0) {
+      const confirmed = window.confirm(
+        "Are you sure you want to delete everything?"
+      );
+      if (!confirmed) return;
+    }
     dispatch({ type: "delete" });
-  }, []);
+  }, [useTouchUI, selectedTileIds]);
 
   useLayoutEffect(() => {
     if (moveOrigin != null) {
