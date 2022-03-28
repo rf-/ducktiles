@@ -31,37 +31,21 @@ const AnimatedTileSprite = TileSprite.withComponent(motion.div);
 export default function TileSprites({
   animating,
   selectedTileIds,
+  appearingTileIds,
   tiles,
   windowDimensions,
 }: {
   animating: boolean;
   selectedTileIds: Array<TileId>;
+  appearingTileIds: Array<TileId>;
   tiles: Array<Tile>;
   windowDimensions: Dimensions;
 }) {
-  const wasAnimating = usePreviousValue(animating) ?? false;
-  const previousTiles = usePreviousValue(tiles) ?? [];
-
-  const [deferredTiles, setDeferredTiles] = useState<Array<Tile> | null>(null);
-
-  // When we start animating, we need to do one render with the old tile
-  // locations so that react-motion knows where each tile should start from.
-  // This isn't an effect because we need to start using `deferredTiles`
-  // immediately.
-  if (!wasAnimating && animating && deferredTiles == null) {
-    setDeferredTiles(previousTiles);
-  }
-  useEffect(() => {
-    if (deferredTiles) setDeferredTiles(null);
-  }, [deferredTiles]);
-
   return (
     <>
-      {(deferredTiles ?? tiles).map((tile) => {
-        const position = {
-          left: tile.offset[0] + windowDimensions[0] / 2,
-          top: tile.offset[1] + windowDimensions[1] / 2,
-        };
+      {tiles.map((tile) => {
+        const left = tile.offset[0] + windowDimensions[0] / 2;
+        const top = tile.offset[1] + windowDimensions[1] / 2;
 
         const selectedStyle = selectedTileIds.includes(tile.id)
           ? {
@@ -72,27 +56,28 @@ export default function TileSprites({
 
         const opacityStyle = tile.ghost ? { opacity: 0.5 } : {};
 
-        if (animating) {
-          return (
-            <AnimatedTileSprite
-              key={tile.id}
-              initial={position}
-              animate={position}
-              style={{ ...selectedStyle, ...opacityStyle }}
-            >
-              {tile.char}
-            </AnimatedTileSprite>
-          );
-        } else {
-          return (
-            <TileSprite
-              key={tile.id}
-              style={{ ...selectedStyle, ...opacityStyle, ...position }}
-            >
-              {tile.char}
-            </TileSprite>
-          );
-        }
+        return (
+          <AnimatedTileSprite
+            key={tile.id}
+            initial={{ x: 0, left, top }}
+            animate={{
+              x: appearingTileIds.includes(tile.id) ? [0, -1.5, 1.5, 0] : 0,
+              left,
+              top,
+              transition: appearingTileIds.includes(tile.id)
+                ? {
+                    duration: 0.15,
+                    bounce: 0,
+                  }
+                : animating
+                ? undefined // default spring
+                : { type: false },
+            }}
+            style={{ ...selectedStyle, ...opacityStyle }}
+          >
+            {tile.char}
+          </AnimatedTileSprite>
+        );
       })}
     </>
   );

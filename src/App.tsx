@@ -234,6 +234,7 @@ function App() {
       selectOrigin,
       pointerPosition,
       selectedTileIds,
+      appearingTileIds,
       useTouchUI,
       showingZeroState,
       showingHelp,
@@ -375,6 +376,7 @@ function App() {
       <TileSprites
         animating={animating}
         selectedTileIds={selectedTileIds}
+        appearingTileIds={appearingTileIds}
         tiles={previewTiles ?? tiles}
         windowDimensions={windowDimensions}
       />

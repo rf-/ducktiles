@@ -19,6 +19,7 @@ import {
 } from "./geometry";
 import chunk from "lodash/chunk";
 import debounce from "lodash/debounce";
+import difference from "lodash/difference";
 
 export type Action =
   | { type: "keyDown"; event: KeyboardEvent }
@@ -52,6 +53,7 @@ export type State = {
   selectOrigin: Point | null;
   pointerPosition: Point;
   selectedTileIds: Array<TileId>;
+  appearingTileIds: Array<TileId>;
   useTouchUI: boolean;
   undoStack: Array<Array<Tile>>;
   redoStack: Array<Array<Tile>>;
@@ -69,6 +71,7 @@ export const initialState: State = {
   moveOrigin: null,
   selectOrigin: null,
   selectedTileIds: [],
+  appearingTileIds: [],
   useTouchUI: false,
   undoStack: [],
   redoStack: [],
@@ -233,6 +236,7 @@ function innerReducer(state: State = initialState, action: Action): State {
       return {
         ...state,
         animating: false,
+        appearingTileIds: [],
         moveOrigin: action.point,
         pointerPosition: action.point,
         selectedTileIds: state.selectedTileIds.includes(topTileAtPoint.id)
@@ -365,6 +369,7 @@ function innerReducer(state: State = initialState, action: Action): State {
         ),
       })),
       animating: false,
+      appearingTileIds: [],
     };
   }
 
@@ -379,6 +384,7 @@ function innerReducer(state: State = initialState, action: Action): State {
       ),
       selectedTileIds: [],
       animating: false,
+      appearingTileIds: [],
       showingZeroState: false,
     };
   }
@@ -427,22 +433,29 @@ function innerReducer(state: State = initialState, action: Action): State {
       redoStack: [],
       inputLetters: null,
       previewTiles: null,
+      animating: false,
+      appearingTileIds: difference(
+        state.previewTiles?.map((tile) => tile.id),
+        state.tiles.map((tile) => tile.id)
+      ),
     };
   }
 
   if (action.type === "addTilesFromPrompt") {
+    const newTiles = placeNewTiles(state, action.text, [
+      state.windowDimensions[0] / 2,
+      state.windowDimensions[1] / 2,
+    ]);
+
     return {
       ...state,
-      tiles: state.tiles.concat(
-        placeNewTiles(state, action.text, [
-          state.windowDimensions[0] / 2,
-          state.windowDimensions[1] / 2,
-        ])
-      ),
+      tiles: state.tiles.concat(newTiles),
       undoStack: [...state.undoStack, state.tiles],
       redoStack: [],
       selectedTileIds: [],
       showingZeroState: false,
+      animating: false,
+      appearingTileIds: newTiles.map((tile) => tile.id),
     };
   }
 
@@ -480,6 +493,7 @@ function innerReducer(state: State = initialState, action: Action): State {
       undoStack: [...state.undoStack, state.tiles],
       redoStack: [],
       animating: true,
+      appearingTileIds: [],
     };
   }
 
@@ -508,6 +522,10 @@ function innerReducer(state: State = initialState, action: Action): State {
       undoStack: state.undoStack.slice(0, -1),
       redoStack: [state.tiles, ...state.redoStack],
       animating: true,
+      appearingTileIds: difference(
+        newTiles.map((tile) => tile.id),
+        state.tiles.map((tile) => tile.id)
+      ),
     };
   }
 
@@ -521,6 +539,10 @@ function innerReducer(state: State = initialState, action: Action): State {
       undoStack: [...state.undoStack, state.tiles],
       redoStack: state.redoStack.slice(1),
       animating: true,
+      appearingTileIds: difference(
+        newTiles.map((tile) => tile.id),
+        state.tiles.map((tile) => tile.id)
+      ),
     };
   }
 
