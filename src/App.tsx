@@ -29,6 +29,7 @@ import {
 import ZeroState from "./ZeroState";
 import HelpIcon from "./HelpIcon";
 import HelpOverlay from "./HelpOverlay";
+import { PointerId } from "./types";
 
 const globalStyles = css`
   * {
@@ -228,11 +229,11 @@ function App() {
       tiles,
       animatingTileMovement,
       inputLetters,
-      previewTiles,
+      inputPreview,
       windowDimensions,
-      moveOrigin,
+      activeMoves,
       selectOrigin,
-      pointerPosition,
+      primaryPointerPosition,
       selectedTileIds,
       appearingTileIds,
       useTouchUI,
@@ -287,18 +288,30 @@ function App() {
   );
 
   const handlePointerDown = useCallback((event: React.PointerEvent) => {
-    if (!event.isPrimary) return;
-    dispatch({ type: "pointerDown", point: [event.clientX, event.clientY] });
+    dispatch({
+      type: "pointerDown",
+      point: [event.clientX, event.clientY],
+      pointerId: event.pointerId as PointerId,
+      isPrimary: event.isPrimary,
+    });
   }, []);
 
   const handlePointerMove = useCallback((event: React.PointerEvent) => {
-    if (!event.isPrimary) return;
-    dispatch({ type: "pointerMove", point: [event.clientX, event.clientY] });
+    dispatch({
+      type: "pointerMove",
+      point: [event.clientX, event.clientY],
+      pointerId: event.pointerId as PointerId,
+      isPrimary: event.isPrimary,
+    });
   }, []);
 
   const handlePointerUp = useCallback((event: React.PointerEvent) => {
-    if (!event.isPrimary) return;
-    dispatch({ type: "pointerUp", point: [event.clientX, event.clientY] });
+    dispatch({
+      type: "pointerUp",
+      point: [event.clientX, event.clientY],
+      pointerId: event.pointerId as PointerId,
+      isPrimary: event.isPrimary,
+    });
   }, []);
 
   const handleAddButtonClick = useCallback(() => {
@@ -341,20 +354,21 @@ function App() {
     dispatch({ type: "showHelp" });
   }, []);
 
+  const isMoving = Object.keys(activeMoves).length > 0;
   useLayoutEffect(() => {
-    if (moveOrigin != null) {
+    if (isMoving) {
       document.documentElement.classList.add("cursor-grabbing");
     } else {
       document.documentElement.classList.remove("cursor-grabbing");
     }
-  }, [moveOrigin]);
+  }, [isMoving]);
 
   const selectionBoxPosition = useMemo(() => {
     if (selectOrigin == null) return null;
 
     const [minX, maxX, minY, maxY] = calculateBoundingBox(
       selectOrigin,
-      pointerPosition
+      primaryPointerPosition
     );
     return {
       left: minX,
@@ -362,7 +376,19 @@ function App() {
       top: minY,
       height: maxY - minY,
     };
-  }, [selectOrigin, pointerPosition]);
+  }, [selectOrigin, primaryPointerPosition]);
+
+  const allTiles = useMemo(() => {
+    const movePreview = Object.assign(
+      {},
+      ...Object.values(activeMoves).map((move) => move.preview)
+    );
+
+    return [
+      ...tiles.map((tile) => movePreview[tile.id] ?? tile),
+      ...Object.values(inputPreview),
+    ];
+  }, [tiles, inputPreview, activeMoves]);
 
   return (
     <AppRoot
@@ -377,7 +403,7 @@ function App() {
         animatingTileMovement={animatingTileMovement}
         selectedTileIds={selectedTileIds}
         appearingTileIds={appearingTileIds}
-        tiles={previewTiles ?? tiles}
+        tiles={allTiles}
         windowDimensions={windowDimensions}
       />
       {selectionBoxPosition != null && (

@@ -1,5 +1,13 @@
 import { tileGap, tileSize } from "./config";
-import { Dimensions, Tile, TileId, Point, PointOffset, BBox } from "./types";
+import {
+  Dimensions,
+  Tile,
+  TileId,
+  Point,
+  PointOffset,
+  BBox,
+  PointerId,
+} from "./types";
 import keyBy from "lodash/keyBy";
 import zip from "lodash/zip";
 import shuffle from "lodash/shuffle";
@@ -23,9 +31,24 @@ import difference from "lodash/difference";
 
 export type Action =
   | { type: "keyDown"; event: KeyboardEvent }
-  | { type: "pointerDown"; point: Point }
-  | { type: "pointerMove"; point: Point }
-  | { type: "pointerUp"; point: Point }
+  | {
+      type: "pointerDown";
+      point: Point;
+      pointerId: PointerId;
+      isPrimary: boolean;
+    }
+  | {
+      type: "pointerMove";
+      point: Point;
+      pointerId: PointerId;
+      isPrimary: boolean;
+    }
+  | {
+      type: "pointerUp";
+      point: Point;
+      pointerId: PointerId;
+      isPrimary: boolean;
+    }
   | { type: "windowResize"; dimensions: Dimensions }
   | { type: "startAddTiles" }
   | { type: "backspaceAddTilesInput" }
@@ -43,15 +66,24 @@ export type Action =
   | { type: "showHelp" }
   | { type: "hideHelp" };
 
+type PreviewTiles = Record<TileId, Tile>;
+
+type ActiveMove = {
+  origin: Point;
+  position: Point;
+  tileIds: Array<TileId>;
+  preview: PreviewTiles;
+};
+
 export type State = {
   tiles: Array<Tile>;
   animatingTileMovement: boolean;
   inputLetters: string | null;
-  previewTiles: Array<Tile> | null;
+  inputPreview: PreviewTiles;
   windowDimensions: Dimensions;
-  moveOrigin: Point | null;
+  activeMoves: Record<PointerId, ActiveMove>;
   selectOrigin: Point | null;
-  pointerPosition: Point;
+  primaryPointerPosition: Point;
   selectedTileIds: Array<TileId>;
   appearingTileIds: Array<TileId>;
   useTouchUI: boolean;
@@ -65,10 +97,10 @@ export const initialState: State = {
   tiles: [],
   animatingTileMovement: false,
   inputLetters: null,
-  previewTiles: null,
-  pointerPosition: [window.innerWidth / 2, window.innerHeight / 2],
+  inputPreview: {},
+  primaryPointerPosition: [window.innerWidth / 2, window.innerHeight / 2],
   windowDimensions: [window.innerWidth, window.innerHeight],
-  moveOrigin: null,
+  activeMoves: [],
   selectOrigin: null,
   selectedTileIds: [],
   appearingTileIds: [],
@@ -229,89 +261,90 @@ function innerReducer(state: State = initialState, action: Action): State {
 
   if (action.type === "pointerDown") {
     if (state.inputLetters != null) return state;
+    if (state.selectOrigin != null) return state;
 
-    const topTileAtPoint = findTilesOverlappingBox(
+    const topTileAtPoint: Tile | undefined = findTilesOverlappingBox(
       state,
       action.point,
       action.point
     ).slice(-1)[0];
 
-    if (topTileAtPoint) {
-      return {
-        ...state,
-        animatingTileMovement: false,
-        appearingTileIds: [],
-        moveOrigin: action.point,
-        pointerPosition: action.point,
-        selectedTileIds: state.selectedTileIds.includes(topTileAtPoint.id)
-          ? state.selectedTileIds
-          : [topTileAtPoint.id],
-      };
+    const isMoving = Object.keys(state.activeMoves).length > 0;
+
+    if (!topTileAtPoint) {
+      if (isMoving) {
+        // Stray multitouch tap; ignore it.
+        return state;
+      } else {
+        // Start a selection box.
+        return {
+          ...state,
+          selectOrigin: action.point,
+          primaryPointerPosition: action.point,
+          selectedTileIds: [],
+        };
+      }
     }
+
+    const topTileIsMoving = Object.values(state.activeMoves).some((move) =>
+      move.tileIds.includes(topTileAtPoint.id)
+    );
+    const topTileIsSelected = state.selectedTileIds.includes(topTileAtPoint.id);
+
+    // Tile is already part of an active move; ignore it.
+    if (topTileIsMoving) return state;
+
+    // If no other move is active, and this tile was already selected, we need
+    // to move all selected tiles. Otherwise we're just moving this tile.
+    const movingTileIds =
+      !isMoving && topTileIsSelected
+        ? state.selectedTileIds
+        : [topTileAtPoint.id];
+
+    // If no other move is active and this tile was *not* already selected, we
+    // want to make this the only selected tile. Otherwise, add it to the
+    // selection if necessary.
+    const selectedTileIds =
+      !isMoving && !topTileIsSelected
+        ? [topTileAtPoint.id]
+        : topTileIsSelected
+        ? state.selectedTileIds
+        : [...state.selectedTileIds, topTileAtPoint.id];
 
     return {
       ...state,
-      selectOrigin: action.point,
-      pointerPosition: action.point,
-      selectedTileIds: [],
+      animatingTileMovement: false,
+      appearingTileIds: [],
+      activeMoves: {
+        ...state.activeMoves,
+        [action.pointerId]: {
+          origin: action.point,
+          position: action.point,
+          tileIds: movingTileIds,
+          preview: {},
+        },
+      },
+      selectedTileIds,
     };
   }
 
   if (action.type === "pointerMove") {
-    if (state.inputLetters != null) {
+    const primaryPointerPosition = action.isPrimary
+      ? action.point
+      : state.primaryPointerPosition;
+
+    if (state.inputLetters != null && action.isPrimary) {
       return {
         ...state,
-        pointerPosition: action.point,
-        previewTiles: state.tiles.concat(
-          placeNewTiles(state, state.inputLetters, action.point)
+        primaryPointerPosition,
+        inputPreview: keyBy(
+          placeNewTiles(state, state.inputLetters, action.point),
+          (tile) => tile.id
         ),
       };
     }
 
-    if (state.moveOrigin) {
-      const offsetDelta = subtract(action.point, state.moveOrigin);
-
-      // If necessary, ensure that all tiles stay inside the window boundaries
-      const selectedTiles = state.tiles.filter((tile) =>
-        state.selectedTileIds.includes(tile.id)
-      );
-      const windowCenter = scale(state.windowDimensions, 0.5);
-      const cornersBBox = calculateBoundingBox(
-        ...selectedTiles.map((tile) =>
-          add(tile.offset, windowCenter, offsetDelta)
-        )
-      );
-      const tilesBBox: BBox = [
-        cornersBBox[0],
-        cornersBBox[1] + tileSize,
-        cornersBBox[2],
-        cornersBBox[3] + tileSize,
-      ];
-      const tilesBBoxTopLeft = calculateBBoxCorners(tilesBBox)[0];
-      const adjustedTopLeft = clampShapeTopLeft(
-        tilesBBoxTopLeft,
-        calculateBBoxDimensions(tilesBBox),
-        calculateFullWindowBBox(state.windowDimensions)
-      );
-      const adjustmentDelta = subtract(adjustedTopLeft, tilesBBoxTopLeft);
-
-      const previewTiles = state.tiles.map((tile) =>
-        state.selectedTileIds.includes(tile.id)
-          ? {
-              ...tile,
-              offset: add(tile.offset, offsetDelta, adjustmentDelta),
-            }
-          : tile
-      );
-
-      return {
-        ...state,
-        previewTiles,
-        pointerPosition: action.point,
-      };
-    }
-
-    if (state.selectOrigin) {
+    if (state.selectOrigin && action.isPrimary) {
       const selectedTileIds = findTilesOverlappingBox(
         state,
         state.selectOrigin,
@@ -320,41 +353,96 @@ function innerReducer(state: State = initialState, action: Action): State {
 
       return {
         ...state,
-        pointerPosition: action.point,
+        primaryPointerPosition,
         selectedTileIds,
       };
     }
 
+    const relevantMove = state.activeMoves[action.pointerId];
+
+    if (relevantMove == null) {
+      return {
+        ...state,
+        primaryPointerPosition,
+      };
+    }
+
+    const offsetDelta = subtract(action.point, relevantMove.origin);
+
+    // If necessary, ensure that all tiles stay inside the window boundaries
+    const movingTiles = state.tiles.filter((tile) =>
+      relevantMove.tileIds.includes(tile.id)
+    );
+    const windowCenter = scale(state.windowDimensions, 0.5);
+    const cornersBBox = calculateBoundingBox(
+      ...movingTiles.map((tile) => add(tile.offset, windowCenter, offsetDelta))
+    );
+    const tilesBBox: BBox = [
+      cornersBBox[0],
+      cornersBBox[1] + tileSize,
+      cornersBBox[2],
+      cornersBBox[3] + tileSize,
+    ];
+    const tilesBBoxTopLeft = calculateBBoxCorners(tilesBBox)[0];
+    const adjustedTopLeft = clampShapeTopLeft(
+      tilesBBoxTopLeft,
+      calculateBBoxDimensions(tilesBBox),
+      calculateFullWindowBBox(state.windowDimensions)
+    );
+    const adjustmentDelta = subtract(adjustedTopLeft, tilesBBoxTopLeft);
+
+    const preview = Object.fromEntries(
+      state.tiles
+        .filter((tile) => relevantMove.tileIds.includes(tile.id))
+        .map((tile) => [
+          tile.id,
+          {
+            ...tile,
+            offset: add(tile.offset, offsetDelta, adjustmentDelta),
+          },
+        ])
+    );
+
     return {
       ...state,
-      pointerPosition: action.point,
+      activeMoves: {
+        ...state.activeMoves,
+        [action.pointerId]: {
+          ...state.activeMoves[action.pointerId],
+          position: action.point,
+          preview,
+        },
+      },
+      primaryPointerPosition,
     };
   }
 
   if (action.type === "pointerUp") {
-    if (state.inputLetters != null) {
+    if (state.inputLetters != null && action.isPrimary) {
       return reducer(state, { type: "commitAddTiles" });
     }
 
-    if (state.moveOrigin) {
-      return {
-        ...state,
-        tiles: state.previewTiles ?? state.tiles,
-        undoStack: [...state.undoStack, state.tiles],
-        redoStack: [],
-        previewTiles: null,
-        moveOrigin: null,
-      };
-    }
-
-    if (state.selectOrigin) {
+    if (state.selectOrigin && action.isPrimary) {
       return {
         ...state,
         selectOrigin: null,
       };
     }
 
-    return state;
+    const { [action.pointerId]: relevantMove, ...otherMoves } =
+      state.activeMoves;
+
+    if (relevantMove == null) {
+      return state;
+    }
+
+    return {
+      ...state,
+      tiles: state.tiles.map((tile) => relevantMove.preview[tile.id] ?? tile),
+      undoStack: [...state.undoStack, state.tiles],
+      redoStack: [],
+      activeMoves: otherMoves,
+    };
   }
 
   if (action.type === "windowResize") {
@@ -383,8 +471,9 @@ function innerReducer(state: State = initialState, action: Action): State {
     return {
       ...state,
       inputLetters,
-      previewTiles: state.tiles.concat(
-        placeNewTiles(state, inputLetters, state.pointerPosition)
+      inputPreview: keyBy(
+        placeNewTiles(state, inputLetters, state.primaryPointerPosition),
+        (tile) => tile.id
       ),
       selectedTileIds: [],
       animatingTileMovement: false,
@@ -399,8 +488,9 @@ function innerReducer(state: State = initialState, action: Action): State {
     return {
       ...state,
       inputLetters,
-      previewTiles: state.tiles.concat(
-        placeNewTiles(state, inputLetters, state.pointerPosition)
+      inputPreview: keyBy(
+        placeNewTiles(state, inputLetters, state.primaryPointerPosition),
+        (tile) => tile.id
       ),
     };
   }
@@ -413,8 +503,9 @@ function innerReducer(state: State = initialState, action: Action): State {
     return {
       ...state,
       inputLetters,
-      previewTiles: state.tiles.concat(
-        placeNewTiles(state, inputLetters, state.pointerPosition)
+      inputPreview: keyBy(
+        placeNewTiles(state, inputLetters, state.primaryPointerPosition),
+        (tile) => tile.id
       ),
     };
   }
@@ -423,7 +514,7 @@ function innerReducer(state: State = initialState, action: Action): State {
     return {
       ...state,
       inputLetters: null,
-      previewTiles: null,
+      inputPreview: {},
     };
   }
 
@@ -432,15 +523,14 @@ function innerReducer(state: State = initialState, action: Action): State {
 
     return {
       ...state,
-      tiles: state.previewTiles ?? state.tiles,
+      tiles: state.tiles.concat(Object.values(state.inputPreview)),
       undoStack: [...state.undoStack, state.tiles],
       redoStack: [],
       inputLetters: null,
-      previewTiles: null,
+      inputPreview: {},
       animatingTileMovement: false,
-      appearingTileIds: difference(
-        state.previewTiles?.map((tile) => tile.id),
-        state.tiles.map((tile) => tile.id)
+      appearingTileIds: Object.values(state.inputPreview).map(
+        (tile) => tile.id
       ),
     };
   }

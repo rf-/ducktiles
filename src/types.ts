@@ -8,6 +8,8 @@ export type PointOffset = [dx: number, dy: number];
 
 export type TileId = number & { __brand: "TileId" };
 
+export type PointerId = number & { __brand: "PointerId" };
+
 export type Tile = {
   id: TileId;
   char: string;
