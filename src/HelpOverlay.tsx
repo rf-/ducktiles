@@ -165,6 +165,13 @@ export default function HelpOverlay({
                 <Key>Z</Key>
               </KeyCombo>
             </Shortcut>
+            <Shortcut>
+              <Label>Show help</Label>
+              <Spacer />
+              <KeyCombo>
+                <Key>?</Key>
+              </KeyCombo>
+            </Shortcut>
           </Container>
         </Root>
       )}

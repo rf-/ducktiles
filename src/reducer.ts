@@ -172,7 +172,7 @@ function innerReducer(state: State = initialState, action: Action): State {
     const isShortcut = ctrlKey || metaKey; // Windows and Mac respectively
 
     if (state.showingHelp) {
-      if (key === " " || key === "Escape" || key === "Enter") {
+      if (key === " " || key === "Escape" || key === "Enter" || key === "?") {
         event.preventDefault();
         return reducer(state, { type: "hideHelp" });
       }
@@ -218,6 +218,10 @@ function innerReducer(state: State = initialState, action: Action): State {
 
     if (((key === "z" && shiftKey) || key === "y") && isShortcut) {
       return reducer(state, { type: "redo" });
+    }
+
+    if (key === "?" && !state.showingHelp && state.inputLetters == null) {
+      return reducer(state, { type: "showHelp" });
     }
 
     return state;
