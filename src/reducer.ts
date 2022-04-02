@@ -464,6 +464,9 @@ function innerReducer(state: State = initialState, action: Action): State {
       undoStack: [...state.undoStack, state.tiles],
       redoStack: [],
       activeMoves: otherMoves,
+      selectedTileIds: action.isPrimary
+        ? state.selectedTileIds
+        : difference(state.selectedTileIds, relevantMove.tileIds),
     };
   }
 
