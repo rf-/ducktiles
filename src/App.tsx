@@ -226,7 +226,7 @@ function App() {
   const [
     {
       tiles,
-      animating,
+      animatingTileMovement,
       inputLetters,
       previewTiles,
       windowDimensions,
@@ -374,7 +374,7 @@ function App() {
       <Global styles={globalStyles} />
       <Logo />
       <TileSprites
-        animating={animating}
+        animatingTileMovement={animatingTileMovement}
         selectedTileIds={selectedTileIds}
         appearingTileIds={appearingTileIds}
         tiles={previewTiles ?? tiles}

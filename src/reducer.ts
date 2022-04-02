@@ -45,7 +45,7 @@ export type Action =
 
 export type State = {
   tiles: Array<Tile>;
-  animating: boolean;
+  animatingTileMovement: boolean;
   inputLetters: string | null;
   previewTiles: Array<Tile> | null;
   windowDimensions: Dimensions;
@@ -63,7 +63,7 @@ export type State = {
 
 export const initialState: State = {
   tiles: [],
-  animating: false,
+  animatingTileMovement: false,
   inputLetters: null,
   previewTiles: null,
   pointerPosition: [window.innerWidth / 2, window.innerHeight / 2],
@@ -239,7 +239,7 @@ function innerReducer(state: State = initialState, action: Action): State {
     if (topTileAtPoint) {
       return {
         ...state,
-        animating: false,
+        animatingTileMovement: false,
         appearingTileIds: [],
         moveOrigin: action.point,
         pointerPosition: action.point,
@@ -372,7 +372,7 @@ function innerReducer(state: State = initialState, action: Action): State {
           offsetBBox
         ),
       })),
-      animating: false,
+      animatingTileMovement: false,
       appearingTileIds: [],
     };
   }
@@ -387,7 +387,7 @@ function innerReducer(state: State = initialState, action: Action): State {
         placeNewTiles(state, inputLetters, state.pointerPosition)
       ),
       selectedTileIds: [],
-      animating: false,
+      animatingTileMovement: false,
       appearingTileIds: [],
       showingZeroState: false,
     };
@@ -437,7 +437,7 @@ function innerReducer(state: State = initialState, action: Action): State {
       redoStack: [],
       inputLetters: null,
       previewTiles: null,
-      animating: false,
+      animatingTileMovement: false,
       appearingTileIds: difference(
         state.previewTiles?.map((tile) => tile.id),
         state.tiles.map((tile) => tile.id)
@@ -458,7 +458,7 @@ function innerReducer(state: State = initialState, action: Action): State {
       redoStack: [],
       selectedTileIds: [],
       showingZeroState: false,
-      animating: false,
+      animatingTileMovement: false,
       appearingTileIds: newTiles.map((tile) => tile.id),
     };
   }
@@ -496,7 +496,7 @@ function innerReducer(state: State = initialState, action: Action): State {
       ),
       undoStack: [...state.undoStack, state.tiles],
       redoStack: [],
-      animating: true,
+      animatingTileMovement: true,
       appearingTileIds: [],
     };
   }
@@ -525,7 +525,7 @@ function innerReducer(state: State = initialState, action: Action): State {
       tiles: newTiles,
       undoStack: state.undoStack.slice(0, -1),
       redoStack: [state.tiles, ...state.redoStack],
-      animating: true,
+      animatingTileMovement: true,
       appearingTileIds: difference(
         newTiles.map((tile) => tile.id),
         state.tiles.map((tile) => tile.id)
@@ -542,7 +542,7 @@ function innerReducer(state: State = initialState, action: Action): State {
       tiles: newTiles,
       undoStack: [...state.undoStack, state.tiles],
       redoStack: state.redoStack.slice(1),
-      animating: true,
+      animatingTileMovement: true,
       appearingTileIds: difference(
         newTiles.map((tile) => tile.id),
         state.tiles.map((tile) => tile.id)

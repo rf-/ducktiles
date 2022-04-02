@@ -1,4 +1,4 @@
-import { Dimensions, Tile, TileId } from "./types";
+import { Dimensions, Point, Tile, TileId } from "./types";
 import styled from "@emotion/styled";
 import { motion } from "framer-motion";
 import { tileFontSize, tileSizeRatio } from "./config";
@@ -29,23 +29,46 @@ export const TileSprite = styled.div`
 const AnimatedTileSprite = TileSprite.withComponent(motion.div);
 
 export default function TileSprites({
-  animating,
+  animatingTileMovement,
   selectedTileIds,
   appearingTileIds,
   tiles,
   windowDimensions,
 }: {
-  animating: boolean;
+  animatingTileMovement: boolean;
   selectedTileIds: Array<TileId>;
   appearingTileIds: Array<TileId>;
   tiles: Array<Tile>;
   windowDimensions: Dimensions;
 }) {
+  const animating = animatingTileMovement || appearingTileIds.length > 0;
+  const wasAnimating = usePreviousValue(animating) ?? false;
+  const previousTiles = usePreviousValue(tiles) ?? [];
+
+  const [deferredTileOffsetsById, setDeferredTileOffsetsById] = useState<Record<
+    TileId,
+    Point
+  > | null>(null);
+
+  // When we start animating, we need to do one render with the old tile
+  // locations so that react-motion knows where each tile should start from.
+  // This isn't an effect because we need to start using
+  // `deferredTileOffsetsById` immediately.
+  if (!wasAnimating && animating && deferredTileOffsetsById == null) {
+    setDeferredTileOffsetsById(
+      Object.fromEntries(previousTiles.map((tile) => [tile.id, tile.offset]))
+    );
+  }
+  useEffect(() => {
+    if (deferredTileOffsetsById) setDeferredTileOffsetsById(null);
+  }, [deferredTileOffsetsById]);
+
   return (
     <>
       {tiles.map((tile) => {
-        const left = tile.offset[0] + windowDimensions[0] / 2;
-        const top = tile.offset[1] + windowDimensions[1] / 2;
+        const tileOffset = deferredTileOffsetsById?.[tile.id] ?? tile.offset;
+        const left = tileOffset[0] + windowDimensions[0] / 2;
+        const top = tileOffset[1] + windowDimensions[1] / 2;
 
         const selectedStyle = selectedTileIds.includes(tile.id)
           ? {
@@ -56,28 +79,37 @@ export default function TileSprites({
 
         const opacityStyle = tile.ghost ? { opacity: 0.5 } : {};
 
-        return (
-          <AnimatedTileSprite
-            key={tile.id}
-            initial={{ x: 0, left, top }}
-            animate={{
-              x: appearingTileIds.includes(tile.id) ? [0, -1.5, 1.5, 0] : 0,
-              left,
-              top,
-              transition: appearingTileIds.includes(tile.id)
-                ? {
-                    duration: 0.15,
-                    bounce: 0,
-                  }
-                : animating
-                ? undefined // default spring
-                : { type: false },
-            }}
-            style={{ ...selectedStyle, ...opacityStyle }}
-          >
-            {tile.char}
-          </AnimatedTileSprite>
-        );
+        if (animating) {
+          return (
+            <AnimatedTileSprite
+              key={tile.id}
+              initial={{ x: 0, left, top }}
+              animate={{
+                x: appearingTileIds.includes(tile.id) ? [0, -1.5, 1.5, 0] : 0,
+                left,
+                top,
+                transition: appearingTileIds.includes(tile.id)
+                  ? {
+                      duration: 0.15,
+                      bounce: 0,
+                    }
+                  : undefined, // default spring
+              }}
+              style={{ ...selectedStyle, ...opacityStyle }}
+            >
+              {tile.char}
+            </AnimatedTileSprite>
+          );
+        } else {
+          return (
+            <TileSprite
+              key={tile.id}
+              style={{ ...selectedStyle, ...opacityStyle, left, top }}
+            >
+              {tile.char}
+            </TileSprite>
+          );
+        }
       })}
     </>
   );
