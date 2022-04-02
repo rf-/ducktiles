@@ -285,15 +285,29 @@ function innerReducer(state: State = initialState, action: Action): State {
     // touch.
     if (state.selectOrigin != null) return state;
 
-    const topTileAtPoint: Tile | undefined = findTilesOverlappingBox(
+    let topTileAtPoint: Tile | undefined = findTilesOverlappingBox(
       state,
       action.point,
       action.point
     ).slice(-1)[0];
 
+    // If we weren't on a tile, try again with extra padding in case they just
+    // barely missed. Touch users get a larger buffer.
+    if (topTileAtPoint == null) {
+      const bufferDelta: PointOffset = state.useTouchUI ? [20, 20] : [5, 5];
+
+      topTileAtPoint = findTilesOverlappingBox(
+        state,
+        subtract(action.point, bufferDelta),
+        add(action.point, bufferDelta)
+      ).slice(-1)[0];
+    }
+
     const isMoving = Object.keys(state.activeMoves).length > 0;
 
-    if (!topTileAtPoint) {
+    const touchedTile = topTileAtPoint; // freeze type
+
+    if (!touchedTile) {
       if (isMoving) {
         // Stray multitouch tap; ignore it.
         return state;
@@ -309,9 +323,9 @@ function innerReducer(state: State = initialState, action: Action): State {
     }
 
     const topTileIsMoving = Object.values(state.activeMoves).some((move) =>
-      move.tileIds.includes(topTileAtPoint.id)
+      move.tileIds.includes(touchedTile.id)
     );
-    const topTileIsSelected = state.selectedTileIds.includes(topTileAtPoint.id);
+    const topTileIsSelected = state.selectedTileIds.includes(touchedTile.id);
 
     // Tile is already part of an active move; ignore it.
     if (topTileIsMoving) return state;
@@ -319,19 +333,17 @@ function innerReducer(state: State = initialState, action: Action): State {
     // If no other move is active, and this tile was already selected, we need
     // to move all selected tiles. Otherwise we're just moving this tile.
     const movingTileIds =
-      !isMoving && topTileIsSelected
-        ? state.selectedTileIds
-        : [topTileAtPoint.id];
+      !isMoving && topTileIsSelected ? state.selectedTileIds : [touchedTile.id];
 
     // If no other move is active and this tile was *not* already selected, we
     // want to make this the only selected tile. Otherwise, add it to the
     // selection if necessary.
     const selectedTileIds =
       !isMoving && !topTileIsSelected
-        ? [topTileAtPoint.id]
+        ? [touchedTile.id]
         : topTileIsSelected
         ? state.selectedTileIds
-        : [...state.selectedTileIds, topTileAtPoint.id];
+        : [...state.selectedTileIds, touchedTile.id];
 
     return {
       ...state,
