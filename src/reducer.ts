@@ -262,6 +262,27 @@ function innerReducer(state: State = initialState, action: Action): State {
 
   if (action.type === "pointerDown") {
     if (state.inputLetters != null) return state;
+
+    // If the event has the `isPrimary` flag but we think we already have an
+    // active gesture, it means something weird happened like the user
+    // activating the iPad dock. We can just clear out our existing gesture
+    // state and move on.
+    if (
+      action.isPrimary &&
+      (state.selectOrigin != null || Object.keys(state.activeMoves).length > 0)
+    ) {
+      return reducer(
+        {
+          ...state,
+          selectOrigin: null,
+          activeMoves: {},
+        },
+        action
+      );
+    }
+
+    // Otherwise, if we really do have a select gesture happening, ignore this
+    // touch.
     if (state.selectOrigin != null) return state;
 
     const topTileAtPoint: Tile | undefined = findTilesOverlappingBox(
