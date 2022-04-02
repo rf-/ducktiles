@@ -30,6 +30,8 @@ import ZeroState from "./ZeroState";
 import HelpIcon from "./HelpIcon";
 import HelpOverlay from "./HelpOverlay";
 import { PointerId } from "./types";
+import UndoIcon from "./UndoIcon";
+import RedoIcon from "./RedoIcon";
 
 const globalStyles = css`
   * {
@@ -237,6 +239,8 @@ function App() {
       selectedTileIds,
       appearingTileIds,
       useTouchUI,
+      undoStack,
+      redoStack,
       showingZeroState,
       showingHelp,
     },
@@ -338,6 +342,14 @@ function App() {
 
   const handleShuffleButtonClick = useCallback(() => {
     dispatch({ type: "shuffle" });
+  }, []);
+
+  const handleUndoButtonClick = useCallback(() => {
+    dispatch({ type: "undo" });
+  }, []);
+
+  const handleRedoButtonClick = useCallback(() => {
+    dispatch({ type: "redo" });
   }, []);
 
   const handleTrashButtonClick = useCallback(() => {
@@ -442,6 +454,26 @@ function App() {
           >
             Shuffle
           </Button>
+          {windowDimensions[0] > 600 && (
+            <>
+              <Button
+                aria-label="Undo"
+                onPointerDown={stopPropagation}
+                onClick={handleUndoButtonClick}
+                disabled={undoStack.length === 0}
+              >
+                <UndoIcon />
+              </Button>
+              <Button
+                aria-label="Redo"
+                onPointerDown={stopPropagation}
+                onClick={handleRedoButtonClick}
+                disabled={redoStack.length === 0}
+              >
+                <RedoIcon />
+              </Button>
+            </>
+          )}
           <Button
             aria-label="Delete"
             onPointerDown={stopPropagation}

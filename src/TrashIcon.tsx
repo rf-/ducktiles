@@ -1,7 +1,6 @@
 export default function TrashIcon() {
   return (
     <svg
-      xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 448 512"
       style={{ fill: "currentColor", height: "1em", display: "block" }}
     >

@@ -28,6 +28,7 @@ import {
 import chunk from "lodash/chunk";
 import debounce from "lodash/debounce";
 import difference from "lodash/difference";
+import intersection from "lodash/intersection";
 
 export type Action =
   | { type: "keyDown"; event: KeyboardEvent }
@@ -620,6 +621,11 @@ function innerReducer(state: State = initialState, action: Action): State {
         newTiles.map((tile) => tile.id),
         state.tiles.map((tile) => tile.id)
       ),
+      selectedTileIds: intersection(
+        newTiles.map((tile) => tile.id),
+        state.selectedTileIds
+      ),
+      activeMoves: {},
     };
   }
 
@@ -637,6 +643,11 @@ function innerReducer(state: State = initialState, action: Action): State {
         newTiles.map((tile) => tile.id),
         state.tiles.map((tile) => tile.id)
       ),
+      selectedTileIds: intersection(
+        newTiles.map((tile) => tile.id),
+        state.selectedTileIds
+      ),
+      activeMoves: {},
     };
   }
 
