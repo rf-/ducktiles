@@ -66,7 +66,7 @@ export const initialState: State = {
   animating: false,
   inputLetters: null,
   previewTiles: null,
-  pointerPosition: [0, 0],
+  pointerPosition: [window.innerWidth / 2, window.innerHeight / 2],
   windowDimensions: [window.innerWidth, window.innerHeight],
   moveOrigin: null,
   selectOrigin: null,
