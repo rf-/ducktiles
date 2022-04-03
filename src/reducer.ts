@@ -29,6 +29,8 @@ import chunk from "lodash/chunk";
 import debounce from "lodash/debounce";
 import difference from "lodash/difference";
 import intersection from "lodash/intersection";
+import union from "lodash/union";
+import without from "lodash/without";
 
 export type Action =
   | { type: "keyDown"; event: KeyboardEvent }
@@ -37,6 +39,7 @@ export type Action =
       point: Point;
       pointerId: PointerId;
       isPrimary: boolean;
+      hasModifier: boolean;
     }
   | {
       type: "pointerMove";
@@ -69,6 +72,12 @@ export type Action =
 
 type PreviewTiles = Record<TileId, Tile>;
 
+type ActiveSelection = {
+  origin: Point;
+  tileIds: Array<TileId>;
+  deselecting: boolean;
+};
+
 type ActiveMove = {
   origin: Point;
   position: Point;
@@ -83,7 +92,7 @@ export type State = {
   inputPreview: PreviewTiles;
   windowDimensions: Dimensions;
   activeMoves: Record<PointerId, ActiveMove>;
-  selectOrigin: Point | null;
+  activeSelection: ActiveSelection | null;
   primaryPointerPosition: Point;
   selectedTileIds: Array<TileId>;
   appearingTileIds: Array<TileId>;
@@ -102,7 +111,7 @@ export const initialState: State = {
   primaryPointerPosition: [window.innerWidth / 2, window.innerHeight / 2],
   windowDimensions: [window.innerWidth, window.innerHeight],
   activeMoves: [],
-  selectOrigin: null,
+  activeSelection: null,
   selectedTileIds: [],
   appearingTileIds: [],
   useTouchUI: false,
@@ -269,12 +278,12 @@ function innerReducer(state: State = initialState, action: Action): State {
     // state and move on.
     if (
       action.isPrimary &&
-      (state.selectOrigin != null || Object.keys(state.activeMoves).length > 0)
+      (state.activeSelection || Object.keys(state.activeMoves).length > 0)
     ) {
       return reducer(
         {
           ...state,
-          selectOrigin: null,
+          activeSelection: null,
           activeMoves: {},
         },
         action
@@ -283,7 +292,7 @@ function innerReducer(state: State = initialState, action: Action): State {
 
     // Otherwise, if we really do have a select gesture happening, ignore this
     // touch.
-    if (state.selectOrigin != null) return state;
+    if (state.activeSelection) return state;
 
     let topTileAtPoint: Tile | undefined = findTilesOverlappingBox(
       state,
@@ -310,42 +319,50 @@ function innerReducer(state: State = initialState, action: Action): State {
     const isMoving = Object.keys(state.activeMoves).length > 0;
 
     const touchedTile = topTileAtPoint; // freeze type
+    const touchedTileIsMoving =
+      touchedTile != null &&
+      Object.values(state.activeMoves).some((move) =>
+        move.tileIds.includes(touchedTile.id)
+      );
+    const touchedTileIsSelected =
+      touchedTile != null && state.selectedTileIds.includes(touchedTile.id);
 
-    if (!touchedTile) {
-      if (isMoving) {
-        // Stray multitouch tap; ignore it.
-        return state;
-      } else {
-        // Start a selection box.
-        return {
-          ...state,
-          selectOrigin: action.point,
-          primaryPointerPosition: action.point,
-          selectedTileIds: [],
-        };
-      }
+    // If they're clicking off all tiles, or on a tile with a modifier key, we
+    // want to either start a selection or ignore it.
+    if (touchedTile == null || action.hasModifier) {
+      // Ignore stray multitouch taps during a move.
+      if (isMoving) return state;
+
+      // Start a selection box.
+      return {
+        ...state,
+        activeSelection: {
+          origin: action.point,
+          tileIds: touchedTile == null ? [] : [touchedTile.id],
+          deselecting: touchedTileIsSelected,
+        },
+        primaryPointerPosition: action.point,
+        selectedTileIds: action.hasModifier ? state.selectedTileIds : [],
+      };
     }
 
-    const topTileIsMoving = Object.values(state.activeMoves).some((move) =>
-      move.tileIds.includes(touchedTile.id)
-    );
-    const topTileIsSelected = state.selectedTileIds.includes(touchedTile.id);
-
-    // Tile is already part of an active move; ignore it.
-    if (topTileIsMoving) return state;
+    // If the tile is already part of an active move, ignore it.
+    if (touchedTileIsMoving) return state;
 
     // If no other move is active, and this tile was already selected, we need
     // to move all selected tiles. Otherwise we're just moving this tile.
     const movingTileIds =
-      !isMoving && topTileIsSelected ? state.selectedTileIds : [touchedTile.id];
+      !isMoving && touchedTileIsSelected
+        ? state.selectedTileIds
+        : [touchedTile.id];
 
     // If no other move is active and this tile was *not* already selected, we
     // want to make this the only selected tile. Otherwise, add it to the
     // selection if necessary.
     const selectedTileIds =
-      !isMoving && !topTileIsSelected
+      !isMoving && !touchedTileIsSelected
         ? [touchedTile.id]
-        : topTileIsSelected
+        : touchedTileIsSelected
         ? state.selectedTileIds
         : [...state.selectedTileIds, touchedTile.id];
 
@@ -382,17 +399,20 @@ function innerReducer(state: State = initialState, action: Action): State {
       };
     }
 
-    if (state.selectOrigin && action.isPrimary) {
-      const selectedTileIds = findTilesOverlappingBox(
+    if (state.activeSelection && action.isPrimary) {
+      const overlappingTileIds = findTilesOverlappingBox(
         state,
-        state.selectOrigin,
+        state.activeSelection.origin,
         action.point
       ).map((tile) => tile.id);
 
       return {
         ...state,
+        activeSelection: {
+          ...state.activeSelection,
+          tileIds: overlappingTileIds,
+        },
         primaryPointerPosition,
-        selectedTileIds,
       };
     }
 
@@ -460,10 +480,13 @@ function innerReducer(state: State = initialState, action: Action): State {
       return reducer(state, { type: "commitAddTiles" });
     }
 
-    if (state.selectOrigin && action.isPrimary) {
+    if (state.activeSelection && action.isPrimary) {
       return {
         ...state,
-        selectOrigin: null,
+        activeSelection: null,
+        selectedTileIds: state.activeSelection.deselecting
+          ? difference(state.selectedTileIds, state.activeSelection.tileIds)
+          : union(state.selectedTileIds, state.activeSelection.tileIds),
       };
     }
 

@@ -32,6 +32,8 @@ import HelpOverlay from "./HelpOverlay";
 import { PointerId } from "./types";
 import UndoIcon from "./UndoIcon";
 import RedoIcon from "./RedoIcon";
+import union from "lodash/union";
+import difference from "lodash/difference";
 
 const globalStyles = css`
   * {
@@ -234,7 +236,7 @@ function App() {
       inputPreview,
       windowDimensions,
       activeMoves,
-      selectOrigin,
+      activeSelection,
       primaryPointerPosition,
       selectedTileIds,
       appearingTileIds,
@@ -297,6 +299,7 @@ function App() {
       point: [event.clientX, event.clientY],
       pointerId: event.pointerId as PointerId,
       isPrimary: event.isPrimary,
+      hasModifier: event.shiftKey || event.ctrlKey || event.metaKey,
     });
   }, []);
 
@@ -376,10 +379,10 @@ function App() {
   }, [isMoving]);
 
   const selectionBoxPosition = useMemo(() => {
-    if (selectOrigin == null) return null;
+    if (activeSelection == null) return null;
 
     const [minX, maxX, minY, maxY] = calculateBoundingBox(
-      selectOrigin,
+      activeSelection.origin,
       primaryPointerPosition
     );
     return {
@@ -388,7 +391,7 @@ function App() {
       top: minY,
       height: maxY - minY,
     };
-  }, [selectOrigin, primaryPointerPosition]);
+  }, [activeSelection, primaryPointerPosition]);
 
   const allTiles = useMemo(() => {
     const movePreview = Object.assign(
@@ -402,6 +405,14 @@ function App() {
     ];
   }, [tiles, inputPreview, activeMoves]);
 
+  const allSelectedTileIds = useMemo(
+    () =>
+      activeSelection?.deselecting
+        ? difference(selectedTileIds, activeSelection.tileIds)
+        : union(selectedTileIds, activeSelection?.tileIds ?? []),
+    [selectedTileIds, activeSelection]
+  );
+
   return (
     <AppRoot
       onPointerDownCapture={handlePointerDownCapture}
@@ -413,7 +424,7 @@ function App() {
       <Logo />
       <TileSprites
         animatingTileMovement={animatingTileMovement}
-        selectedTileIds={selectedTileIds}
+        selectedTileIds={allSelectedTileIds}
         appearingTileIds={appearingTileIds}
         tiles={allTiles}
         windowDimensions={windowDimensions}
@@ -460,7 +471,7 @@ function App() {
                 aria-label="Undo"
                 onPointerDown={stopPropagation}
                 onClick={handleUndoButtonClick}
-                disabled={undoStack.length === 0}
+                disabled={inputLetters != null || undoStack.length === 0}
               >
                 <UndoIcon />
               </Button>
@@ -468,7 +479,7 @@ function App() {
                 aria-label="Redo"
                 onPointerDown={stopPropagation}
                 onClick={handleRedoButtonClick}
-                disabled={redoStack.length === 0}
+                disabled={inputLetters != null || redoStack.length === 0}
               >
                 <RedoIcon />
               </Button>
