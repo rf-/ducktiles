@@ -292,9 +292,13 @@ function innerReducer(state: State = initialState, action: Action): State {
     ).slice(-1)[0];
 
     // If we weren't on a tile, try again with extra padding in case they just
-    // barely missed. Touch users get a larger buffer.
+    // barely missed. Phone and tablet users get larger buffers.
     if (topTileAtPoint == null) {
-      const bufferDelta: PointOffset = state.useTouchUI ? [20, 20] : [5, 5];
+      const bufferDelta: PointOffset = state.useTouchUI
+        ? Math.min(...state.windowDimensions) >= 600
+          ? [20, 20]
+          : [10, 10]
+        : [5, 5];
 
       topTileAtPoint = findTilesOverlappingBox(
         state,
