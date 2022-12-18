@@ -34,6 +34,8 @@ import UndoIcon from "./UndoIcon";
 import RedoIcon from "./RedoIcon";
 import union from "lodash/union";
 import difference from "lodash/difference";
+import LineIcon from "./LineIcon";
+import CircleIcon from "./CircleIcon";
 
 const globalStyles = css`
   * {
@@ -245,6 +247,7 @@ function App() {
       redoStack,
       showingZeroState,
       showingHelp,
+      showingArrangeToLine,
     },
     dispatch,
   ] = useReducer(reducer, initialState, initializer);
@@ -345,6 +348,10 @@ function App() {
 
   const handleShuffleButtonClick = useCallback(() => {
     dispatch({ type: "shuffle" });
+  }, []);
+
+  const handleArrangeButtonClick = useCallback(() => {
+    dispatch({ type: "arrange" });
   }, []);
 
   const handleUndoButtonClick = useCallback(() => {
@@ -465,6 +472,16 @@ function App() {
           >
             Shuffle
           </Button>
+          {windowDimensions[0] > 640 && (
+            <Button
+              aria-label="Arrange"
+              onPointerDown={stopPropagation}
+              onClick={handleArrangeButtonClick}
+              disabled={inputLetters != null || tiles.length === 0}
+            >
+              {showingArrangeToLine ? <LineIcon /> : <CircleIcon />}
+            </Button>
+          )}
           {windowDimensions[0] > 600 && (
             <>
               <Button

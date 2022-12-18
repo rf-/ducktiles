@@ -144,6 +144,15 @@ export default function HelpOverlay({
               </KeyCombo>
             </Shortcut>
             <Shortcut>
+              <Label>Arrange as circle</Label>
+              <Spacer />
+              <KeyCombo>
+                <Key>{modKey}</Key>
+                <Key>⇧</Key>
+                <Key>S</Key>
+              </KeyCombo>
+            </Shortcut>
+            <Shortcut>
               <Label>Undo</Label>
               <Spacer />
               <KeyCombo>

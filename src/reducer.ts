@@ -18,19 +18,19 @@ import {
   calculateBBoxCorners,
   calculateBBoxDimensions,
   calculateBoundingBox,
+  calculateCentroid,
   calculateFullWindowBBox,
   calculateSmallOffsetBBox,
-  calculateSmallWindowBBox,
   clampShapeTopLeft,
+  round,
   scale,
   subtract,
 } from "./geometry";
-import chunk from "lodash/chunk";
 import debounce from "lodash/debounce";
 import difference from "lodash/difference";
 import intersection from "lodash/intersection";
 import union from "lodash/union";
-import without from "lodash/without";
+import range from "lodash/range";
 
 export type Action =
   | { type: "keyDown"; event: KeyboardEvent }
@@ -62,6 +62,7 @@ export type Action =
   | { type: "addTilesFromPrompt"; text: string }
   | { type: "selectAll" }
   | { type: "shuffle" }
+  | { type: "arrange" }
   | { type: "delete" }
   | { type: "undo" }
   | { type: "redo" }
@@ -101,6 +102,7 @@ export type State = {
   redoStack: Array<Array<Tile>>;
   showingZeroState: boolean;
   showingHelp: boolean;
+  showingArrangeToLine: boolean;
 };
 
 export const initialState: State = {
@@ -119,6 +121,7 @@ export const initialState: State = {
   redoStack: [],
   showingZeroState: true,
   showingHelp: false,
+  showingArrangeToLine: false,
 };
 
 function findTilesOverlappingBox(
@@ -149,26 +152,21 @@ function calculateTilesSize(numberOfTiles: number) {
   return tileSize * numberOfTiles + tileGap * (numberOfTiles - 1);
 }
 
-function placeNewTiles(
-  state: State,
-  rawText: string,
-  point: Point
-): Array<Tile> {
-  const chars = (rawText || "type here").split("");
-
-  const nextId = (state.tiles.slice(-1)[0]?.id ?? 0) + 1;
-  const windowBBox = calculateSmallWindowBBox(state.windowDimensions);
-
+function calculateLinearTilePositions(
+  center: Point,
+  tilesCount: number,
+  bbox: BBox
+): Array<Point> {
   // Reduce the number of tiles per row until it can fit
-  let maxRowTiles = chars.length;
+  let maxRowTiles = tilesCount;
   let overallWidth: number;
   for (;;) {
     overallWidth = calculateTilesSize(maxRowTiles);
 
     // If everything fits, we're good
     if (
-      point[0] - overallWidth / 2 >= windowBBox[0] &&
-      point[0] + overallWidth / 2 <= windowBBox[1]
+      center[0] - overallWidth / 2 >= bbox[0] &&
+      center[0] + overallWidth / 2 <= bbox[1]
     ) {
       break;
     }
@@ -180,31 +178,74 @@ function placeNewTiles(
   }
 
   // Now lay out the tiles in that number of rows, centered on the cursor
-  const tilesByRow = chunk(chars, maxRowTiles);
-  const overallHeight = calculateTilesSize(tilesByRow.length);
-  const startX = point[0] - overallWidth / 2;
-  const startY = point[1] - overallHeight / 2;
+  const overallHeight = calculateTilesSize(Math.ceil(tilesCount / maxRowTiles));
+  const startX = center[0] - overallWidth / 2;
+  const startY = center[1] - overallHeight / 2;
 
   // Clamp the locations to fit inside the window if possible
   const [adjustedStartX, adjustedStartY] = clampShapeTopLeft(
     [startX, startY],
     [overallWidth, overallHeight],
-    windowBBox
+    bbox
+  );
+
+  return range(tilesCount).map((idx) => [
+    adjustedStartX + (idx % maxRowTiles) * (tileSize + tileGap),
+    adjustedStartY + Math.floor(idx / maxRowTiles) * (tileSize + tileGap),
+  ]);
+}
+
+function placeNewTiles(
+  state: State,
+  rawText: string,
+  center: Point
+): Array<Tile> {
+  const chars = (rawText || "type here").split("");
+  const nextId = (state.tiles.slice(-1)[0]?.id ?? 0) + 1;
+
+  const offsets = calculateLinearTilePositions(
+    subtract(center, [
+      state.windowDimensions[0] / 2,
+      state.windowDimensions[1] / 2,
+    ]),
+    chars.length,
+    calculateSmallOffsetBBox(state.windowDimensions)
   );
 
   return chars.map((char, idx) => ({
     id: (nextId + idx) as TileId,
     char,
-    offset: [
-      adjustedStartX +
-        (idx % maxRowTiles) * (tileSize + tileGap) -
-        state.windowDimensions[0] / 2,
-      adjustedStartY +
-        Math.floor(idx / maxRowTiles) * (tileSize + tileGap) -
-        state.windowDimensions[1] / 2,
-    ],
+    offset: offsets[idx],
     ghost: !rawText,
   }));
+}
+
+function shuffleTiles(
+  state: State,
+  tileIds: Array<TileId>,
+  newOffsets?: Array<PointOffset>
+): State {
+  const tilesById = keyBy(state.tiles, (tile) => tile.id);
+  const startingOffsets = tileIds.map((id) => tilesById[id].offset);
+
+  let offsets = newOffsets ?? startingOffsets;
+  while (isEqual(offsets, startingOffsets)) {
+    offsets = shuffle(offsets);
+  }
+  const offsetById: Record<TileId, PointOffset> = Object.fromEntries(
+    zip(tileIds, offsets)
+  );
+
+  return {
+    ...state,
+    tiles: state.tiles.map((tile) =>
+      offsetById[tile.id] ? { ...tile, offset: offsetById[tile.id] } : tile
+    ),
+    undoStack: [...state.undoStack, state.tiles],
+    redoStack: [],
+    animatingTileMovement: true,
+    appearingTileIds: [],
+  };
 }
 
 function innerReducer(state: State = initialState, action: Action): State {
@@ -249,9 +290,14 @@ function innerReducer(state: State = initialState, action: Action): State {
       return reducer(state, { type: "selectAll" });
     }
 
-    if (key === "s" && isShortcut) {
+    if (key === "s" && !shiftKey && isShortcut) {
       event.preventDefault();
       return reducer(state, { type: "shuffle" });
+    }
+
+    if (key === "s" && shiftKey && isShortcut) {
+      event.preventDefault();
+      return reducer(state, { type: "arrange" });
     }
 
     if (key === "z" && !shiftKey && isShortcut) {
@@ -596,6 +642,7 @@ function innerReducer(state: State = initialState, action: Action): State {
       appearingTileIds: Object.values(state.inputPreview).map(
         (tile) => tile.id
       ),
+      showingArrangeToLine: false,
     };
   }
 
@@ -614,6 +661,7 @@ function innerReducer(state: State = initialState, action: Action): State {
       showingZeroState: false,
       animatingTileMovement: false,
       appearingTileIds: newTiles.map((tile) => tile.id),
+      showingArrangeToLine: false,
     };
   }
 
@@ -625,34 +673,79 @@ function innerReducer(state: State = initialState, action: Action): State {
   }
 
   if (action.type === "shuffle") {
+    const tileIds =
+      state.selectedTileIds.length > 1
+        ? state.selectedTileIds
+        : state.tiles.map((tile) => tile.id);
+
+    return shuffleTiles(state, tileIds);
+  }
+
+  if (action.type === "arrange") {
     const tilesById = keyBy(state.tiles, (tile) => tile.id);
     const tileIds =
       state.selectedTileIds.length > 1
         ? state.selectedTileIds
         : state.tiles.map((tile) => tile.id);
 
-    const offsets = tileIds.map((id) => tilesById[id].offset);
+    const arrangeToLine = tileIds.length < 3 || state.showingArrangeToLine;
 
-    let newOffsets = offsets;
-    while (isEqual(newOffsets, offsets)) {
-      newOffsets = shuffle(offsets);
+    const startingOffsets = tileIds.map((id) => tilesById[id].offset);
+    const centroid = round(calculateCentroid(startingOffsets));
+
+    if (arrangeToLine) {
+      const targetOffsets = calculateLinearTilePositions(
+        add(centroid, [tileSize / 2, tileSize / 2]),
+        tileIds.length,
+        calculateSmallOffsetBBox(state.windowDimensions)
+      );
+
+      return {
+        ...state,
+        ...shuffleTiles(state, tileIds, targetOffsets),
+        showingArrangeToLine: false,
+      };
+    } else {
+      const totalCircumferencePx = tileIds.length * tileSize * 1.5;
+      const radiusPx = totalCircumferencePx / Math.PI / 2;
+      const topLeft: PointOffset = [
+        centroid[0] - radiusPx,
+        centroid[1] - radiusPx,
+      ];
+
+      // Clamp the locations to fit inside the window if possible
+      const offsetBBox = calculateSmallOffsetBBox(state.windowDimensions);
+      const adjustedTopLeft = clampShapeTopLeft(
+        topLeft,
+        [radiusPx * 2 + tileSize, radiusPx * 2 + tileSize],
+        offsetBBox
+      );
+      const adjustedCentroid = round(
+        add(centroid, subtract(adjustedTopLeft, topLeft))
+      );
+      console.log({ centroid, topLeft, adjustedTopLeft, adjustedCentroid });
+
+      const theta = (Math.PI * 2) / tileIds.length;
+      const targetOffsets = range(tileIds.length).map((idx) => {
+        const angle = theta * idx;
+        return round(
+          clampShapeTopLeft(
+            add(adjustedCentroid, [
+              Math.cos(angle) * radiusPx,
+              Math.sin(angle) * radiusPx,
+            ]),
+            [tileSize, tileSize],
+            offsetBBox
+          )
+        );
+      });
+
+      return {
+        ...state,
+        ...shuffleTiles(state, tileIds, shuffle(targetOffsets)),
+        showingArrangeToLine: true,
+      };
     }
-    const newOffsetById: Record<TileId, PointOffset> = Object.fromEntries(
-      zip(tileIds, newOffsets)
-    );
-
-    return {
-      ...state,
-      tiles: state.tiles.map((tile) =>
-        newOffsetById[tile.id]
-          ? { ...tile, offset: newOffsetById[tile.id] }
-          : tile
-      ),
-      undoStack: [...state.undoStack, state.tiles],
-      redoStack: [],
-      animatingTileMovement: true,
-      appearingTileIds: [],
-    };
   }
 
   if (action.type === "delete") {
@@ -667,6 +760,7 @@ function innerReducer(state: State = initialState, action: Action): State {
       undoStack: [...state.undoStack, state.tiles],
       redoStack: [],
       selectedTileIds: [],
+      showingArrangeToLine: false,
     };
   }
 
@@ -689,6 +783,7 @@ function innerReducer(state: State = initialState, action: Action): State {
         state.selectedTileIds
       ),
       activeMoves: {},
+      showingArrangeToLine: false,
     };
   }
 
@@ -711,6 +806,7 @@ function innerReducer(state: State = initialState, action: Action): State {
         state.selectedTileIds
       ),
       activeMoves: {},
+      showingArrangeToLine: false,
     };
   }
 
@@ -766,10 +862,14 @@ const updateURL = debounce((tiles: Array<Tile>) => {
 }, 100);
 
 export function reducer(state: State, action: Action): State {
-  const newState = innerReducer(state, action);
+  let newState = innerReducer(state, action);
 
   if (state.tiles !== newState.tiles) {
     updateURL(newState.tiles);
+  }
+
+  if (newState.showingArrangeToLine && !isEqual(state.selectedTileIds, newState.selectedTileIds)) {
+    newState = { ...newState, showingArrangeToLine: false };
   }
 
   return newState;
