@@ -225,6 +225,8 @@ function shuffleTiles(
   tileIds: Array<TileId>,
   newOffsets?: Array<PointOffset>
 ): State {
+  if (tileIds.length < 2) return state;
+
   const tilesById = keyBy(state.tiles, (tile) => tile.id);
   const startingOffsets = tileIds.map((id) => tilesById[id].offset);
 
